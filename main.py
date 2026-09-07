@@ -62,12 +62,36 @@ class MusicBot(commands.Bot):
         await self.change_presence(status=discord.Status.online, activity=activity)
 
 
+async def start_dummy_server():
+    """Inicia un servidor HTTP ligero si la plataforma en la nube define la variable PORT (ej. Render, Koyeb, Railway)."""
+    port_env = os.getenv("PORT")
+    if port_env:
+        try:
+            from aiohttp import web
+            async def handle_ping(request):
+                return web.Response(text="Bot is running!")
+
+            app = web.Application()
+            app.router.add_get("/", handle_ping)
+            app.router.add_get("/health", handle_ping)
+            runner = web.AppRunner(app)
+            await runner.setup()
+            site = web.TCPSite(runner, "0.0.0.0", int(port_env))
+            await site.start()
+            logger.info(f"Servidor web de health check iniciado en el puerto {port_env}")
+        except Exception as e:
+            logger.warning(f"No se pudo iniciar el servidor web de health check: {e}")
+
+
 async def main():
     if not TOKEN:
         print("\n" + "=" * 60)
-        print("IMPORTANTE: Configura tu DISCORD_TOKEN en el archivo .env antes de iniciar.")
+        print("IMPORTANTE: Configura tu DISCORD_TOKEN en las variables de entorno o archivo .env.")
         print("=" * 60 + "\n")
         return
+
+    # Iniciar servidor web para health check si hay puerto asignado
+    await start_dummy_server()
 
     bot = MusicBot()
     async with bot:
